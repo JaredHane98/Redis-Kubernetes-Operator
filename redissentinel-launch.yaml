@@ -25,7 +25,6 @@ spec:
         protected-mode "no"
 
         # try to minimize the down time
-        # the master should be removed from this command and placed elsewhere
         sentinel down-after-milliseconds mymaster 5000
         sentinel failover-timeout mymaster 10000
 
@@ -35,7 +34,7 @@ spec:
         # this command sets password protection for the sentinel
         requirepass supersecretpasswordnobodywillguess
 
-        # THIS SHOULD MATCH THE REPLICATION 
+        # should match the master
         tls-replication yes
         tls-protocols "TLSv1.3"
         port 0
