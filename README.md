@@ -8,7 +8,7 @@ This repository showcases a highly available and durable Redis database with Rep
 [jsonnet](https://github.com/google/jsonnet)
 
 
-# Getting Started
+# Getting started
 
 Clone the repository
 
@@ -17,7 +17,7 @@ git clone https://github.com/JaredHane98/Redis-Kubernetes-Operator.git
 cd Redis-Kubernetes-Operator
 ```
 
-# Creating Cluster Resources
+# Creating cluster resources
 
 First we need to create a highly available VPC with subnets spread across multiple AZs.
 ```bash
@@ -25,7 +25,7 @@ chmod +x ./vpc-script.sh
 ./vpc-script.sh
 ```
 
-# Setting up System Node
+# Setting up system node
 
 Once the VPC script has complete we can begin creating the cluster nodes. 
 
@@ -33,7 +33,7 @@ Once the VPC script has complete we can begin creating the cluster nodes.
 eksctl create cluster -f ./cluster-launch.yaml
 ```
 
-# Install Kubernetes Dashboard(Optional)
+# Install kubernetes dashboard(Optional)
 
 ```bash
 helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
@@ -46,7 +46,7 @@ kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy
 Access the dashboard at https://127.0.0.1:8443
 
 
-# Install Certificate Manager
+# Install certificate manager
 - kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.yaml
 
 
@@ -74,7 +74,7 @@ kubectl port-forward svc/prometheus-k8s -n monitoring 9090:9090
 Access the Prometheus and Grafana Dashboard at localhost:3000 and localhost:9090
 
 
-# Create an AWS IAM OIDC provider for your cluster
+# Create an AWS IAM OIDC provider for the cluster
 
 ```bash
 cluster_name=example-cluster
@@ -83,7 +83,7 @@ echo $oidc_id
 aws iam list-open-id-connect-providers | grep $oidc_id | cut -d "/" -f4
 ```
 
-If an output was return on the previous step then skip this step
+If an output was returned skip this step
 
 ```bash
 eksctl utils associate-iam-oidc-provider --cluster $cluster_name --approve
@@ -100,7 +100,7 @@ aws iam create-policy \
   --policy-document file://iam_policy.json
 ```
 
-Replace role attach-policy-arn with the output in the previous step.
+Replace role attach-policy-arn with the output of the previous step
 
 ```bash
 eksctl create iamserviceaccount \
@@ -126,24 +126,25 @@ kubectl get deployments -n kube-system
 
 You should see
 
+```bash
 kubectl get deployments -n kube-system
 NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
 aws-load-balancer-controller   2/2     2            2           22s
+```
 
-
-# Create The Redis Database Node
+# Create the Redis Database Node
 
 ```bash
 eksctl create nodegroup --config-file=./database-node-launch.yaml
 ```
 
-# Launch The Redis Database Operator
+# Launch the Redis Database Operator
 
 ```bash
 kubectl apply -f ./redis_operator_resources.yaml
 ```
 
-# Install The service monitor for Redis
+# Install the service monitor for Redis
 
 ```bash
 kubectl apply -f ./service-monitor.yaml
@@ -165,7 +166,7 @@ redisreplication-1   1/2     Running   0          55s
 redisreplication-2   1/2     Running   0          55s
 ```
 
-Note the the master is the only instance considered READY. This is purposefully done to prevent traffic from being directed to the slaves.
+Note the the master is the only instance considered READY. This is purposefully done to prevent traffic from being directed towards the slaves.
 
 You can now upload redis-dashboard.json to Grafana to view the statistics of your Redis Database.
 
@@ -175,7 +176,7 @@ You can now upload redis-dashboard.json to Grafana to view the statistics of you
 - eksctl create nodegroup --config-file=./gen-purpose-amd64-node-launch.yaml
 ```
 
-# Launch The sentinels 
+# Launch the sentinels 
 
 ```bash
 kubectl apply -f './redissentinel-launch.yaml'
