@@ -45,13 +45,17 @@ data:
           executor: 'ramping-vus',
           startVUs: 1,
           stages: [
-            { duration: '15m', target: 2000 },
+            { duration: '15m', target: 1000 },
           ],
         },
       },
     };
 
-    const url = 'http://k8s-redisdat-redising-6f92911646-1725959859.us-east-1.elb.amazonaws.com/employee';
+    const env_url = __ENV.TARGET_URL;
+    if (!env_url) {
+      fail('TARGET_URL environment variable is not set.');
+    }
+    const url = "http://" + env_url + "/employee"
 
     export default function () {
       const employee = generateRandomEmployee();
@@ -71,42 +75,3 @@ data:
         'response code was 200': (res) => res.status === 200,
       });
     }
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: k6-deployment
-  labels:
-    app: k6
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: k6
-  template:
-    metadata:
-      labels:
-        app: k6
-    spec:
-      containers:
-        - name: k6
-          image: grafana/k6:latest
-          args:
-            - run
-            - /scripts/script.js
-          volumeMounts:
-            - name: k6-test-script
-              mountPath: /scripts
-      nodeSelector:
-        cluster.io/instance-type: redis-k6-node  # Ensures the pod runs on nodes with this label
-      tolerations:
-        - key: "redis-k6-key"
-          operator: "Equal"
-          value: "true"
-          effect: "NoSchedule"  # Allows the pod to tolerate the taint and be scheduled on the node
-      volumes:
-        - name: k6-test-script
-          configMap:
-            name: k6-test-script
-
-

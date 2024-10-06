@@ -30,7 +30,12 @@ export const options = {
 
 let index = 0
 
-const url = 'http://k8s-redisdat-redising-6f92911646-1725959859.us-east-1.elb.amazonaws.com/employee';
+
+const env_url = __ENV.TARGET_URL;
+if (!env_url) {
+  fail('TARGET_URL environment variable is not set.');
+}
+const url = "http://" + env_url + "/employee"
 
 export default function () {
 
