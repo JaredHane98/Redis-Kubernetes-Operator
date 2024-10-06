@@ -49,7 +49,7 @@ spec:
       cpu: "1400m"
   config:
     data: 
-      redis.conf: | # need to fix the pid file remove the init container portion of this file because it's not necessary
+      redis.conf: | 
         bind 0.0.0.0 ::
         tcp-backlog 511
         timeout 0
@@ -89,7 +89,7 @@ spec:
     spec:        # note: You can use create PVC and a init container for example to provide better persistence
       replicas: 3
       template:
-        affinity: # make sure the sentinels are not colocated onto the same node
+        affinity: # make sure the replicas are not located on the same node
           podAntiAffinity:
             requiredDuringSchedulingIgnoredDuringExecution:
             - labelSelector:
