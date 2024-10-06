@@ -27,10 +27,9 @@ export AZ_2=us-east-1b
 export AZ_3=us-east-1c
 ```
 
-Then run the scipt.
+Then run the script.
 
 ```bash
-
 chmod +x ./vpc-script.sh
 ./vpc-script.sh
 ```
