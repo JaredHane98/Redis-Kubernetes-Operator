@@ -1,4 +1,4 @@
-This repository showcases a highly available and durable Redis database with Replicants and Sentinels spread across multiple availability zones. It features leader promotion, follower recovery, sentinel recovery, TLS authentication with certificate manager, and password protection. The accompanying example is designed to run on AWS, but the standalone operator should run anywhere including minikube or kind clusters. 
+This repository showcases a highly available and durable Redis database with Replicants and Sentinels spread across multiple availability zones. It features automatic leader promotion, follower recovery, sentinel recovery, TLS authentication with certificate manager, password protection, and more. The accompanying example is designed to run on AWS, but the operator should run anywhere including minikube or kind clusters. 
 
 # Prerequisites
 
