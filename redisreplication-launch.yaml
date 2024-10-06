@@ -1,0 +1,112 @@
+---
+apiVersion: cert-manager.io/v1
+kind: Issuer
+metadata:
+  name: redis-issuer
+  namespace:  redis-database
+spec:
+  selfSigned: {}
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: redis-certificate
+  namespace: redis-database
+spec:
+  secretName: redis-tls-secret
+  duration: 2160h   # 90 days
+  renewBefore: 360h # 15 days before expiration
+  dnsNames:
+    - "*.redisreplication-headless.redis-database.svc.cluster.local"
+    - "*.redisreplication-service.redis-database.svc.cluster.local"
+    - "*.redissentinel-headless.redis-database.svc.cluster.local"
+    - "*.redissentinel-service.redis-database.svc.cluster.local"
+    - "redisreplication-service.redis-database.svc.cluster.local"
+    - "redissentinel-service.redis-database.svc.cluster.local"
+  issuerRef:
+    name: redis-issuer
+    kind: Issuer
+---
+apiVersion: redis.redis.operator/v1
+kind: RedisReplication
+metadata:
+  name: redisreplication
+  namespace: redis-database
+spec:
+  sentinelConfig:
+    redisSentinelName: redissentinel
+    redisSentinelDowntime: 5000
+  enableExporter: true
+  tls: # must be specified if using TLS
+    name: redis-tls # must match volumemounts
+    secretName: redis-tls-secret
+  resources:
+    requests: # exporter will use 100Mi and 100m 
+      memory: "6Gi"
+      cpu: "1200m"
+    limits:
+      memory: "7Gi"
+      cpu: "1400m"
+  config:
+    data: 
+      redis.conf: | # need to fix the pid file remove the init container portion of this file because it's not necessary
+        bind 0.0.0.0 ::
+        tcp-backlog 511
+        timeout 0
+        tcp-keepalive 300
+        daemonize no
+        supervised no
+        pidfile /var/run/redis.pid
+        protected-mode yes
+
+        # dbfilename database_snapshot.rdb
+        
+        # needs this directory even with no PVC attatched. Otherwise it doesn't work
+        dir /tmp/redis/
+
+        # prevents the replica from serving read requests when they detect they are not fully sychronized with the master
+        replica-serve-stale-data no 
+
+        # writes are only accepted when at least 1 is connected. which a lag under 10 seconds.
+        # min-replicas-to-write 1
+        min-replicas-max-lag 10
+        
+        masterauth supersecretpasswordnobodywillguess
+        requirepass supersecretpasswordnobodywillguess
+
+        tls-replication yes
+        tls-protocols "TLSv1.2 TLSv1.3"
+        port 0
+        tls-port 6379
+        tls-cert-file /tls/tls.crt
+        tls-key-file /tls/tls.key
+        tls-ca-cert-file /tls/ca.crt
+  volumeMounts:
+  - name: redis-tls # must match tls
+    mountPath: /tls
+    readOnly: true
+  statefulSet:   # all of the statefulset options are available here, except labels, containers, oridinals, and partially security context
+    spec:        # note: You can use create PVC and a init container for example to provide better persistence
+      replicas: 3
+      template:
+        affinity: # make sure the sentinels are not colocated onto the same node
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - redisreplication-service
+        spec:
+          tolerations:
+          - key: redis-database-key
+            operator: Equal
+            value: "true"
+            effect: NoSchedule
+        nodeSelector:
+          kubernetes.io/arch: amd64
+          kubernetes.io/os: linux
+          cluster.io/instance-type: memory-database
+
+  

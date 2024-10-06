@@ -1,0 +1,112 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: k6-test-script
+data:
+  script.js: |
+    // import necessary module
+    import { check } from 'k6';
+    import http from 'k6/http';
+    import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
+
+    function getRandomInt(min, max) {
+      return Math.floor(Math.random() * (max - min)) + min;
+    }
+
+    function getRandomDate(start, end) {
+      const date = new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()));
+      return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+    }
+
+    function generateRandomEmployee() {
+      const firstNames = ['nozomi', 'john', 'jane', 'alex', 'emily', 'oliver', 'sophie'];
+      const lastNames = ['heredia', 'smith', 'johnson', 'doe', 'adams', 'clark', 'evans'];
+      const sectors = ['HR', 'Engineering', 'Marketing', 'Finance', 'Sales', 'Operations'];
+
+      return {
+        id: uuidv4(),
+        first_name: firstNames[getRandomInt(0, firstNames.length)],
+        last_name: lastNames[getRandomInt(0, lastNames.length)],
+        sector: sectors[getRandomInt(0, sectors.length)],
+        start_time: getRandomDate(new Date(2020, 0, 1), new Date(2025, 0, 1)),  // Random start time
+        dob: getRandomDate(new Date(1970, 0, 1), new Date(2000, 0, 1)),         // Random DOB
+        salary: getRandomInt(30000, 150000)                                     // Random salary between 30k and 150k
+      };
+    }
+
+    export const options = {
+      thresholds: {
+        http_req_failed: [{ threshold: 'rate<0.01', abortOnFail: false }],
+        http_req_duration: ['p(99)<1000'],
+      },
+      scenarios: {
+        average_load: {
+          executor: 'ramping-vus',
+          startVUs: 1,
+          stages: [
+            { duration: '15m', target: 2000 },
+          ],
+        },
+      },
+    };
+
+    const url = 'http://k8s-redisdat-redising-6f92911646-1725959859.us-east-1.elb.amazonaws.com/employee';
+
+    export default function () {
+      const employee = generateRandomEmployee();
+
+      const payload = JSON.stringify(employee);
+
+      const params = {
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+
+      // send a post request and save response as a variable
+      const res = http.post(url, payload, params);
+
+      check(res, {
+        'response code was 200': (res) => res.status === 200,
+      });
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: k6-deployment
+  labels:
+    app: k6
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: k6
+  template:
+    metadata:
+      labels:
+        app: k6
+    spec:
+      containers:
+        - name: k6
+          image: grafana/k6:latest
+          args:
+            - run
+            - /scripts/script.js
+          volumeMounts:
+            - name: k6-test-script
+              mountPath: /scripts
+      nodeSelector:
+        cluster.io/instance-type: redis-k6-node  # Ensures the pod runs on nodes with this label
+      tolerations:
+        - key: "redis-k6-key"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"  # Allows the pod to tolerate the taint and be scheduled on the node
+      volumes:
+        - name: k6-test-script
+          configMap:
+            name: k6-test-script
+
+

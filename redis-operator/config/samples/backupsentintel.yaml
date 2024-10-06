@@ -1,0 +1,64 @@
+apiVersion: redis.redis.operator/v1
+kind: RedisSentinel
+metadata:
+  namespace: redis-operator-system
+  name: redissentinel
+spec:
+  resources:
+    requests:
+      memory: "500Mi"
+      cpu: "350m"
+    limits:
+      memory: "1Gi"
+      cpu: "500m"
+  config:
+    name: redis-config-sentinel
+    data:
+      sentinel.conf: | # master will be automatically discovered
+        daemonize no
+        pidfile /var/run/redis-sentinel.pid
+        logfile "" 
+        dir /tmp
+        acllog-max-len 128
+        sentinel monitor mymaster 10.244.0.30 6379 2
+        sentinel deny-scripts-reconfig yes
+        sentinel resolve-hostnames no   
+        sentinel announce-hostnames no
+        protected-mode "no"
+        port 26379
+  volumeMounts:
+  - name: redis-config-sentinel
+    mountPath: /tmp/sentinel.conf
+    subPath: sentinel.conf
+    readOnly: false
+  statefulSet:
+    spec:
+      replicas: 3 # by default is 1
+      serviceName: redissentinel-headless
+      selector:
+        matchLabels:
+          app: redissentinel-headless
+      template:
+        metadata:
+          labels:
+            app: redissentinel-headless
+        spec:
+          initContainers:
+          - name: init-config 
+            image: busybox
+            command: ['sh', '-c', 'mkdir -p /etc/redis && cp /tmp/sentinel.conf /etc/redis/ && cat /etc/redis/sentinel.conf']
+            securityContext:
+              runAsUser: 0 # run as root
+            volumeMounts:
+            - name: redis-config-sentinel
+              mountPath: /tmp/sentinel.conf
+              subPath: sentinel.conf
+          securityContext:
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumes:
+          - name: redis-config-sentinel
+            configMap:
+              name: redis-config-sentinel
+              defaultMode: 0777
+

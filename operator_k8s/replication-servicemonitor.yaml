@@ -1,0 +1,20 @@
+---
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: redisreplication-prometheus-monitoring
+  labels:
+    app.kubernetes.io/instance: redisreplication
+    app.kubernetes.io/component: middleware
+spec:
+  selector:
+    matchLabels:
+      app: redisreplication-service
+  endpoints:
+  - port: redis-exporter
+    interval: 30s
+    scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+    - monitoring
+

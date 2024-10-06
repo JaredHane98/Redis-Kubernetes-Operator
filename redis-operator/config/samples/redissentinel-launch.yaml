@@ -1,0 +1,64 @@
+apiVersion: redis.redis.operator/v1
+kind: RedisSentinel
+metadata:
+  name: redissentinel
+  namespace: redis-database
+spec:
+  masterName: mymaster
+  redisReplicationName: redisreplication
+  redisSentinelQuorum: 2
+  resources:
+    requests:
+      memory: "250Mi"
+      cpu: "150m"
+    limits:
+      memory: "500Mi"
+      cpu: "250m"
+  config:
+    data:
+      sentinel.conf: | # master will be automatically discovered & name is ${name}-config
+        daemonize no
+        logfile "" 
+        dir /tmp/redis
+        acllog-max-len 128
+        sentinel deny-scripts-reconfig yes
+        protected-mode "no"
+
+        # try to minimize the down time
+        # the master should be removed from this command and placed elsewhere
+        sentinel down-after-milliseconds mymaster 5000
+        sentinel failover-timeout mymaster 10000
+
+        # must match the master password
+        sentinel auth-pass mymaster supersecretpasswordnobodywillguess
+
+        # this command sets password protection for the sentinel
+        requirepass supersecretpasswordnobodywillguess
+
+        # THIS SHOULD MATCH THE REPLICATION 
+        tls-replication yes
+        tls-protocols "TLSv1.3"
+        port 0
+        tls-port 26379
+        tls-cert-file /tls/tls.crt
+        tls-key-file /tls/tls.key
+        tls-ca-cert-file /tls/ca.crt
+  statefulSet: 
+    spec:
+      replicas: 3
+      template:
+        affinity: # make sure the sentinels are not colocated onto the same node
+          podAntiAffinity:
+            requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchExpressions:
+                - key: app.kubernetes.io/name
+                  operator: In
+                  values:
+                  - redissentinel-service
+            topologyKey: "kubernetes.io/hostname"
+        spec:
+          nodeSelector:
+            kubernetes.io/arch: amd64
+            kubernetes.io/os: linux
+            cluster.io/instance-type: gp-burst-amd64
