@@ -5,7 +5,6 @@ metadata:
   name: k6-test-script
 data:
   script.js: |
-    // import necessary module
     import { check } from 'k6';
     import http from 'k6/http';
     import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
@@ -53,7 +52,7 @@ data:
 
     const env_url = __ENV.TARGET_URL;
     if (!env_url) {
-      fail('TARGET_URL environment variable is not set.');
+      throw new Error('TARGET_URL environment variable is not set.');
     }
     const url = "http://" + env_url + "/employee"
 

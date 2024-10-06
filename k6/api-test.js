@@ -7,7 +7,7 @@ import { uuidv4 } from 'https://jslib.k6.io/k6-utils/1.4.0/index.js';
 
 
 const data = new SharedArray('employees', function () {
-  const f = JSON.parse(open('/home/jhane/workspace/custom-resource-operators/k6-stress/output-database.json')).employees;
+  const f = JSON.parse(open('./output-database.json')).employees;
   return f; 
 });
 
@@ -33,7 +33,7 @@ let index = 0
 
 const env_url = __ENV.TARGET_URL;
 if (!env_url) {
-  fail('TARGET_URL environment variable is not set.');
+  throw new Error('TARGET_URL environment variable is not set.');
 }
 const url = "http://" + env_url + "/employee"
 
