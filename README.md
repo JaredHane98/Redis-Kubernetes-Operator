@@ -132,19 +132,19 @@ NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
 aws-load-balancer-controller   2/2     2            2           22s
 ```
 
-# Create the Redis Database Node
+# Create the redis database node
 
 ```bash
 eksctl create nodegroup --config-file=./database-node-launch.yaml
 ```
 
-# Launch the Redis Database Operator
+# Launch the redis database operator
 
 ```bash
 kubectl apply -f ./redis_operator_resources.yaml
 ```
 
-# Install the service monitor for Redis
+# Install the service monitor for redis
 
 ```bash
 kubectl apply -f ./service-monitor.yaml
