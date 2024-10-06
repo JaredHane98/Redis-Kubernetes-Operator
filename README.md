@@ -150,7 +150,7 @@ kubectl apply -f ./redis_operator_resources.yaml
 kubectl apply -f ./service-monitor.yaml
 ```
 
-# Launch The Redis Database
+# Launch the redis database
 
 ```bash
 kubectl apply -f ./redisreplication-launch.yaml
