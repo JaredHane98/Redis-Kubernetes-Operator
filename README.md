@@ -1,123 +1,189 @@
-# Generate the cluster configuration files
-- chmod +x ./vpc-script.sh
-- ./vpc-script.sh
+This repository showcases a highly available and durable Redis database with Replicants and Sentinels spread across multiple availability zones. It features leader promotion, follower recovery, sentinel recovery, TLS authentication with certificate manager, and password protection. The accompanying example is designed to run on AWS, but the standalone operator should run anywhere including minikube or kind clusters. 
 
-# Launch the cluster using eksctl 
-- eksctl create cluster -f ./cluster-launch.yaml
+# Prerequisites
 
+[kubectl](https://kubernetes.io/docs/reference/kubectl/)
+[docker](https://docs.docker.com/engine/install/)
+[eksctl](https://eksctl.io/installation/)
+[jsonnet](https://github.com/google/jsonnet)
+
+
+# Getting Started
+
+Clone the repository
+
+```bash
+git clone https://github.com/JaredHane98/Redis-Kubernetes-Operator.git
+cd Redis-Kubernetes-Operator
+```
+
+# Creating Cluster Resources
+
+First we need to create a highly available VPC with subnets spread across multiple AZs.
+```bash
+chmod +x ./vpc-script.sh
+./vpc-script.sh
+```
+
+# Setting up System Node
+
+Once the VPC script has complete we can begin creating the cluster nodes. 
+
+```bash
+eksctl create cluster -f ./cluster-launch.yaml
+```
 
 # Install Kubernetes Dashboard(Optional)
-- helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-- helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
-- kubectl apply -f ./dashboard-adminuser.yml 
-- kubectl -n kubernetes-dashboard create token admin-user --duration=48h 
-- kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
-- https://127.0.0.1:8443
+
+```bash
+helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
+helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
+kubectl apply -f ./dashboard-adminuser.yml 
+kubectl -n kubernetes-dashboard create token admin-user --duration=48h 
+kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
+```
+
+Access the dashboard at https://127.0.0.1:8443
 
 
 # Install Certificate Manager
 - kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.yaml
 
 
-
-
 # Install Prometheus and Grafana
-- make sure you have jsonnet installed
-- cd kube-prometheus
-- jb init 
-- jb install github.com/prometheus-operator/kube-prometheus/jsonnet/kube-prometheus@main
-- wget https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/main/build.sh -O build.sh
-- chmod +x build.sh
-- kubectl create namespace redis-database
-- jb update
-- ./build.sh redis-database.jsonnet
-- kubectl apply --server-side -f manifests/setup
-- kubectl wait \
+```bash
+cd kube-prometheus
+jb init 
+jb install github.com/prometheus-operator/kube-prometheus/jsonnet/kube-prometheus@main
+wget https://raw.githubusercontent.com/prometheus-operator/kube-prometheus/main/build.sh -O build.sh
+chmod +x build.sh
+kubectl create namespace redis-database
+jb update
+./build.sh redis-database.jsonnet
+kubectl apply --server-side -f manifests/setup
+kubectl wait \
 	--for condition=Established \
 	--all CustomResourceDefinition \
 	--namespace=monitoring
-- kubectl apply -f manifests/
+kubectl apply -f manifests/
 
-- kubectl port-forward svc/grafana -n monitoring 3000:3000
-- kubectl port-forward svc/prometheus-k8s -n monitoring 9090:9090
+kubectl port-forward svc/grafana -n monitoring 3000:3000
+kubectl port-forward svc/prometheus-k8s -n monitoring 9090:9090
+```
 
-- login to localhost:3000 & localhost:9090
+Access the Prometheus and Grafana Dashboard at localhost:3000 and localhost:9090
 
 
+# Create an AWS IAM OIDC provider for your cluster
 
-# Create an IAM OIDC provider for your cluster
-- cluster_name=example-cluster
-- oidc_id=$(aws eks describe-cluster --name $cluster_name --query "cluster.identity.oidc.issuer" --output text | cut -d '/' -f 5)
-- echo $oidc_id
-- aws iam list-open-id-connect-providers | grep $oidc_id | cut -d "/" -f4
-- if an output was returned then skip the next step
-- eksctl utils associate-iam-oidc-provider --cluster $cluster_name --approve
+```bash
+cluster_name=example-cluster
+oidc_id=$(aws eks describe-cluster --name $cluster_name --query "cluster.identity.oidc.issuer" --output text | cut -d '/' -f 5)
+echo $oidc_id
+aws iam list-open-id-connect-providers | grep $oidc_id | cut -d "/" -f4
+```
 
+If an output was return on the previous step then skip this step
+
+```bash
+eksctl utils associate-iam-oidc-provider --cluster $cluster_name --approve
+```
 
 
 # Create AWS Load Balancer
-- skip this step if you already have a load balancer policy
-- curl -O https://raw.githubusercontent.com/kubernetes-sigs/aws-load-balancer-controller/v2.7.2/docs/install/iam_policy.json
-- aws iam create-policy \
-    --policy-name AWSLoadBalancerControllerIAMPolicy \
-    --policy-document file://iam_policy.json
 
-# Replace the arn with the one outputted in the previous step
-- eksctl create iamserviceaccount \
+Skip this step if you already have a AWS Load Balancer policy.
+
+```bash
+aws iam create-policy \
+  --policy-name AWSLoadBalancerControllerIAMPolicy \
+  --policy-document file://iam_policy.json
+```
+
+Replace role attach-policy-arn with the output in the previous step.
+
+```bash
+eksctl create iamserviceaccount \
   --cluster=example-cluster \
   --namespace=kube-system \
   --name=aws-load-balancer-controller \
   --role-name AmazonEKSLoadBalancerControllerRole \
   --attach-policy-arn=arn:aws:iam::123456789123:policy/AWSLoadBalancerControllerIAMPolicy \
   --approve
-
-
-
-
-- helm repo add eks https://aws.github.io/eks-charts
-
-- helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
+helm repo add eks https://aws.github.io/eks-charts
+helm install aws-load-balancer-controller eks/aws-load-balancer-controller \
   -n kube-system \
   --set clusterName=example-cluster \
   --set serviceAccount.create=false \
-  --set serviceAccount.name=aws-load-balancer-controller 
+  --set serviceAccount.name=aws-load-balancer-controller
+```
 
-# Make sure the load balancer is installed
-- kubectl get deployments -n kube-system
+Make sure the load balancer is installed correctly
 
-# Should see
+```bash
+kubectl get deployments -n kube-system
+```
+
+You should see
+
 kubectl get deployments -n kube-system
 NAME                           READY   UP-TO-DATE   AVAILABLE   AGE
 aws-load-balancer-controller   2/2     2            2           22s
 
-# Create the worker database nodes
-- eksctl create nodegroup --config-file=./database-node-launch.yaml
 
-# Launch the redis database operator
-- kubectl apply -f ./redis_operator_resources.yaml
+# Create The Redis Database Node
 
-# Install the service monitor for Redis
-- kubectl apply -f ./service-monitor.yaml
+```bash
+eksctl create nodegroup --config-file=./database-node-launch.yaml
+```
 
-# Launch the redis database instances
-- kubectl apply -f ./redisreplication-launch.yaml
+# Launch The Redis Database Operator
 
-# Check the launch of the Redis Instances through the dashboard or kubectl. Should see
+```bash
+kubectl apply -f ./redis_operator_resources.yaml
+```
+
+# Install The service monitor for Redis
+
+```bash
+kubectl apply -f ./service-monitor.yaml
+```
+
+# Launch The Redis Database
+
+```bash
+kubectl apply -f ./redisreplication-launch.yaml
+```
+
+Check the status of the Redis database
+
+```bash
 kubectl get pods -n redis-database
 NAME                 READY   STATUS    RESTARTS   AGE
 redisreplication-0   2/2     Running   0          55s
 redisreplication-1   1/2     Running   0          55s
 redisreplication-2   1/2     Running   0          55s
+```
 
-# Check the instances through Prometheus with configuration file 763_rev6.json
+Note the the master is the only instance considered READY. This is purposefully done to prevent traffic from being directed to the slaves.
 
-# Launch the sentinel instance
+You can now upload redis-dashboard.json to Grafana to view the statistics of your Redis Database.
+
+# Launch the sentinel nodes
+
+```bash
 - eksctl create nodegroup --config-file=./gen-purpose-amd64-node-launch.yaml
+```
 
-# Launch the sentinels 
-- kubectl apply -f './redissentinel-launch.yaml'
+# Launch The sentinels 
 
-# Check the launch of the Sentinel Instances through the dashboard or kubectl. Should see
+```bash
+kubectl apply -f './redissentinel-launch.yaml'
+```
+
+Check the status of the Sentinel Instances
+
+```bash
 kubectl get pods -n redis-database
 NAME                 READY   STATUS    RESTARTS   AGE
 redisreplication-0   2/2     Running   0          16m
@@ -126,32 +192,116 @@ redisreplication-2   1/2     Running   0          16m
 redissentinel-0      1/1     Running   0          2m8s
 redissentinel-1      1/1     Running   0          107s
 redissentinel-2      1/1     Running   0          87s
+```
 
-# Launch the worker instances
-- eksctl create nodegroup --config-file=./gen-purpose-arm64-node-launch.yaml
+# Launch the worker nodes
+
+```bash
+eksctl create nodegroup --config-file=./gen-purpose-arm64-node-launch.yaml
+```
 
 # Launch the workers
-- kubectl apply -f './redis-worker-deployment.yaml'
 
+```bash
+kubectl apply -f './redis-worker-deployment.yaml'
+```
 
-# Get the address
-- kubectl describe ingress/redis-ingress -n redis-database
+Get the address.
 
-# If you have a sufficient upload 50Mbs+ you can run the test locally
+```bash
+kubectl describe ingress/redis-ingress -n redis-database
+```
+
+Make an enviromental variable of the URL/
+
+```bash
+export TARGET_URL=URL
+```
+
+Wait for the address to become available.
+
+```bash
+curl --request GET http://{$TARGET_URL}/readiness
+OK
+```
+
+# Running K6 test
+
+Run the test locally(REQUIRES 50MBPS+ UPLOAD AND POWERFUL MACHINE)
+
+```bash
+cd k6
 k6 run api-test.js
+```
 
-# Alternatively you can run the tests within the cloud
+Run the test in the cloud.
+
+```bash
+cd k6
 k6 cloud api-test.js
+```
 
-# Or you can spend a bit less by launching k6 into Kubernetes. Note the instance is much larger. Run the test and remove it.
-- eksctl create nodegroup --config-file=./k6-node-launch.yaml
+Run K6 test in Kubernetes. 
+
+```bash
+eksctl create nodegroup --config-file=./k6-node-launch.yaml
+```
+
+Create the deployment
+
+```bash
+cat > k6-job.yaml << EOF
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: k6-job
+  labels:
+    app: k6
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: k6
+    spec:
+      containers:
+        - name: k6
+          image: grafana/k6:latest
+          args:
+            - run
+            - /scripts/script.js
+          volumeMounts:
+            - name: k6-test-script
+              mountPath: /scripts
+          env:
+          - name: TARGET_URL
+            value: $TARGET_URL
+      nodeSelector:
+        cluster.io/instance-type: redis-k6-node
+      tolerations:
+        - key: "redis-k6-key"
+          operator: "Equal"
+          value: "true"
+          effect: "NoSchedule"
+      volumes:
+        - name: k6-test-script
+          configMap:
+            name: k6-test-script
+      restartPolicy: Never
+EOF
+```
+
+Launch the K6 test
+
+```bash
+kubectl apply -f ./k6-configmap.yaml
+kubectl apply -f ./k6-job.yaml
+```
 
 
-# Run K6 with address 
-- k6 run api-test.js
+# Cleaning up the resources
 
-
-# Removing the resources
 - eksctl delete nodegroup --config-file='./gen-purpose-arm64-node-launch.yaml' --approve
 - eksctl delete nodegroup --config-file='./gen-purpose-amd64-node-launch.yaml' --approve
 - eksctl delete nodegroup --config-file='./database-node-launch.yaml' --approve
@@ -159,10 +309,12 @@ k6 cloud api-test.js
 -  eksctl delete cluster -f '/home/jhane/workspace/custom-resource-operators/cluster-launch.yaml'
 
 
-# Wait for the resources to be completely deleted. 
+Wait for the cluster resources to be completed deleted.
+
 - export VPC_ID=YOUR_VPC_ID
 - chmod +x vpc-script.sh
 - ./vpc-script.sh
+
 
 
 
