@@ -19,8 +19,18 @@ cd Redis-Kubernetes-Operator
 
 # Creating cluster resources
 
-First we need to create a highly available VPC with subnets spread across multiple AZs.
+First we need to create a highly available VPC with subnets spread across multiple AZs. The script requires enviromental variables AZ_1, AZ_2, and AZ_3 to function. For example
+
 ```bash
+export AZ_1=us-east-1a
+export AZ_2=us-east-1b
+export AZ_3=us-east-1c
+```
+
+Then run the scipt.
+
+```bash
+
 chmod +x ./vpc-script.sh
 ./vpc-script.sh
 ```
@@ -32,19 +42,6 @@ Once the VPC script has complete we can begin creating the cluster nodes.
 ```bash
 eksctl create cluster -f ./cluster-launch.yaml
 ```
-
-# Install kubernetes dashboard(Optional)
-
-```bash
-helm repo add kubernetes-dashboard https://kubernetes.github.io/dashboard/
-helm upgrade --install kubernetes-dashboard kubernetes-dashboard/kubernetes-dashboard --create-namespace --namespace kubernetes-dashboard
-kubectl apply -f ./dashboard-adminuser.yml 
-kubectl -n kubernetes-dashboard create token admin-user --duration=48h 
-kubectl -n kubernetes-dashboard port-forward svc/kubernetes-dashboard-kong-proxy 8443:443
-```
-
-Access the dashboard at https://127.0.0.1:8443
-
 
 # Install certificate manager
 - kubectl apply -f https://github.com/cert-manager/cert-manager/releases/download/v1.15.3/cert-manager.yaml
