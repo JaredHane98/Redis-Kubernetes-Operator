@@ -303,18 +303,21 @@ kubectl apply -f ./k6-job.yaml
 
 # Cleaning up the resources
 
-- eksctl delete nodegroup --config-file='./gen-purpose-arm64-node-launch.yaml' --approve
-- eksctl delete nodegroup --config-file='./gen-purpose-amd64-node-launch.yaml' --approve
-- eksctl delete nodegroup --config-file='./database-node-launch.yaml' --approve
-- eksctl delete nodegroup --config-file='./k6-node-launch.yaml' --approve
--  eksctl delete cluster -f '/home/jhane/workspace/custom-resource-operators/cluster-launch.yaml'
-
+```bash
+eksctl delete nodegroup --config-file='./gen-purpose-arm64-node-launch.yaml' --approve
+eksctl delete nodegroup --config-file='./gen-purpose-amd64-node-launch.yaml' --approve
+eksctl delete nodegroup --config-file='./database-node-launch.yaml' --approve
+eksctl delete nodegroup --config-file='./k6-node-launch.yaml' --approve
+eksctl delete cluster -f '/home/jhane/workspace/custom-resource-operators/cluster-launch.yaml'
+```
 
 Wait for the cluster resources to be completed deleted.
 
-- export VPC_ID=YOUR_VPC_ID
-- chmod +x vpc-script.sh
-- ./vpc-script.sh
+```bash
+export VPC_ID=YOUR_VPC_ID
+chmod +x vpc-script.sh
+./vpc-script.sh
+```
 
 
 
